@@ -21,6 +21,12 @@
 
   defaultFormat = ["format_r"];
   formats = {
+    air = {
+      command = getExe pkgs.air-formatter;
+      args = ["format" "$FILENAME"];
+      stdin = false;
+    };
+
     styler = {
       command = let
         pkg = pkgs.rWrapper.override {packages = [pkgs.rPackages.styler];};

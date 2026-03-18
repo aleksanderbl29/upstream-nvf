@@ -4,7 +4,7 @@
   lib,
   ...
 }: let
-  inherit (builtins) attrNames;
+  inherit (builtins) attrNames elem;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
   inherit (lib.modules) mkIf mkMerge;
   inherit (lib.types) enum;
@@ -31,6 +31,8 @@
       command = let
         pkg = pkgs.rWrapper.override {packages = [pkgs.rPackages.styler];};
       in "${pkg}/bin/R";
+      args = ["-s" "-e" "styler::style_file(commandArgs(TRUE))" "--args" "$FILENAME"];
+      stdin = false;
     };
 
     format_r = {
@@ -55,6 +57,13 @@
 
   defaultServers = ["r_language_server"];
   servers = {
+    air = {
+      enable = true;
+      cmd = [(getExe pkgs.air-formatter) "server"];
+      filetypes = ["r" "rmd" "quarto"];
+      root_markers = ["DESCRIPTION" ".air.toml" "renv.lock" ".git"];
+    };
+
     r_language_server = {
       enable = true;
       cmd = [(getExe r-with-languageserver) "--no-echo" "-e" "languageserver::run()"];
@@ -121,7 +130,9 @@ in {
       vim.formatter.conform-nvim = {
         enable = true;
         setupOpts = {
-          formatters_by_ft.r = cfg.format.type;
+          formatters_by_ft.r = builtins.filter (
+            name: !(name == "air" && elem "air" cfg.lsp.servers)
+          ) cfg.format.type;
           formatters =
             mapListToAttrs (name: {
               inherit name;
@@ -136,9 +147,29 @@ in {
       vim.lsp.servers =
         mapListToAttrs (n: {
           name = n;
-          value = servers.${n};
+          value =
+            if n == "r_language_server" && elem "air" cfg.lsp.servers
+            then
+              servers.${n}
+              // {
+                on_attach = mkLuaInline ''
+                  function(client, _)
+                    client.server_capabilities.documentFormattingProvider = false
+                    client.server_capabilities.documentRangeFormattingProvider = false
+                  end
+                '';
+              }
+            else servers.${n};
         })
         cfg.lsp.servers;
+
+      vim.formatter.conform-nvim = mkIf (elem "air" cfg.lsp.servers) {
+        enable = true;
+        setupOpts.formatters_by_ft = {
+          quarto = ["injected"];
+          rmd = ["injected"];
+        };
+      };
     })
   ]);
 }

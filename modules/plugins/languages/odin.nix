@@ -7,34 +7,15 @@
   inherit (builtins) attrNames;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.types) enum package;
+  inherit (lib.types) enum package listOf;
   inherit (lib.nvim.dag) entryAfter;
-  inherit (lib.meta) getExe;
-  inherit (lib.nvim.types) mkGrammarOption deprecatedSingleOrListOf;
-  inherit (lib.generators) mkLuaInline;
-  inherit (lib.nvim.attrsets) mapListToAttrs;
+  inherit (lib) genAttrs;
+  inherit (lib.nvim.types) mkGrammarOption;
 
   cfg = config.vim.languages.odin;
 
   defaultServers = ["ols"];
-  servers = {
-    ols = {
-      enable = true;
-      cmd = [(getExe pkgs.ols)];
-      filetypes = ["odin"];
-      root_dir =
-        mkLuaInline
-        /*
-        lua
-        */
-        ''
-          function(bufnr, on_dir)
-            local fname = vim.api.nvim_buf_get_name(bufnr)
-            on_dir(util.root_pattern('ols.json', '.git', '*.odin')(fname))
-          end'';
-    };
-  };
-
+  servers = ["ols"];
   defaultDebugger = "codelldb";
   debuggers = {
     codelldb = {
@@ -71,7 +52,7 @@ in {
         };
 
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.odin.lsp.servers" (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "Odin LSP server to use";
       };
@@ -106,12 +87,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["odin"];
+        });
+      };
     })
 
     (mkIf cfg.dap.enable {

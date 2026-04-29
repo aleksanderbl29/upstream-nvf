@@ -6,44 +6,16 @@
 }: let
   inherit (lib.options) literalExpression mkEnableOption mkOption;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.meta) getExe' getExe;
-  inherit (builtins) attrNames;
+  inherit (lib.meta) getExe;
+  inherit (lib) genAttrs;
   inherit (lib.types) enum listOf;
   inherit (lib.nvim.types) mkGrammarOption diagnostics;
-  inherit (lib.generators) mkLuaInline;
   inherit (lib.nvim.attrsets) mapListToAttrs;
 
   cfg = config.vim.languages.kotlin;
 
   defaultServers = ["kotlin-language-server"];
-  servers = {
-    kotlin-language-server = {
-      enable = true;
-      cmd = [(getExe' pkgs.kotlin-language-server "kotlin-language-server")];
-      filetypes = ["kotlin"];
-      root_markers = [
-        "settings.gradle" # Gradle (multi-project)
-        "settings.gradle.kts" # Gradle (multi-project)
-        "build.xml" # Ant
-        "pom.xml" # Maven
-        "build.gradle" # Gradle
-        "build.gradle.kts" # gradle
-      ];
-      init_options = {
-        storagePath = mkLuaInline "
-        vim.fs.root(vim.fn.expand '%:p:h',
-          {
-            'settings.gradle', -- Gradle (multi-project)
-            'settings.gradle.kts', -- Gradle (multi-project)
-            'build.xml', -- Ant
-            'pom.xml', -- Maven
-            'build.gradle', -- Gradle
-            'build.gradle.kts', -- Gradle
-          }
-        )";
-      };
-    };
-  };
+  servers = ["kotlin-language-server"];
 
   defaultDiagnosticsProvider = ["ktlint"];
   diagnosticsProviders = {
@@ -73,7 +45,7 @@ in {
           defaultText = literalExpression "config.vim.lsp.enable";
         };
       servers = mkOption {
-        type = listOf (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "Kotlin LSP server to use";
       };
@@ -112,12 +84,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["kotlin"];
+        });
+      };
     })
   ]);
 }

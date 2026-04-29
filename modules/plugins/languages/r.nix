@@ -7,17 +7,12 @@
   inherit (builtins) attrNames elem;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.types) enum;
-  inherit (lib.meta) getExe;
-  inherit (lib.nvim.types) mkGrammarOption deprecatedSingleOrListOf;
+  inherit (lib.types) enum listOf;
+  inherit (lib) genAttrs;
+  inherit (lib.nvim.types) mkGrammarOption deprecatedSingleOrListOf enumWithRename;
   inherit (lib.nvim.attrsets) mapListToAttrs;
-  inherit (lib.generators) mkLuaInline;
 
   cfg = config.vim.languages.r;
-
-  r-with-languageserver = pkgs.rWrapper.override {
-    packages = [pkgs.rPackages.languageserver];
-  };
 
   defaultFormat = ["format_r"];
   formats = {
@@ -98,7 +93,12 @@ in {
         };
 
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.r.lsp.servers" (enum (attrNames servers));
+        type = listOf (enumWithRename
+          "vim.languages.r.lsp.servers"
+          servers
+          {
+            r_language_server = "r-languageserver";
+          });
         default = defaultServers;
         description = "R LSP server to use";
       };

@@ -5,6 +5,7 @@
   ...
 }: let
   inherit (builtins) attrNames;
+  inherit (lib) genAttrs;
   inherit (lib.meta) getExe getExe';
   inherit (lib.modules) mkIf mkMerge;
   inherit (lib.options) literalExpression mkEnableOption mkOption;
@@ -17,28 +18,7 @@
 
   cfg = config.vim.languages.markdown;
   defaultServers = ["marksman"];
-  servers = {
-    marksman = {
-      enable = true;
-      cmd = [(getExe pkgs.marksman) "server"];
-      filetypes = ["markdown" "markdown.mdx"];
-      root_markers = [".marksman.toml" ".git"];
-    };
-
-    markdown-oxide = {
-      enable = true;
-      cmd = [(getExe pkgs.markdown-oxide)];
-      filetypes = ["markdown"];
-      root_markers = [".git" ".obsidian" ".moxide.toml"];
-    };
-
-    rumdl = {
-      enable = true;
-      cmd = [(getExe pkgs.rumdl) "server"];
-      filetypes = ["markdown"];
-      root_markers = [".git" ".rumdl.toml" "rumdl.toml" ".config/rumdl.toml" "pyproject.toml"];
-    };
-  };
+  servers = ["marksman" "markdown-oxide" "rumdl"];
 
   defaultFormat = ["deno_fmt"];
   formats = {
@@ -99,7 +79,7 @@ in {
 
       servers = mkOption {
         description = "Markdown LSP server to use";
-        type = deprecatedSingleOrListOf "vim.language.markdown.lsp.servers" (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
       };
     };
@@ -186,12 +166,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["markdown" "mdx"];
+        });
+      };
     })
 
     (mkIf cfg.format.enable {

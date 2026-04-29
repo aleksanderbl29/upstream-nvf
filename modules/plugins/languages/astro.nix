@@ -9,37 +9,15 @@
   inherit (lib.options) mkEnableOption mkOption literalExpression;
   inherit (lib.modules) mkIf mkMerge;
   inherit (lib.meta) getExe;
-  inherit (lib.types) enum coercedTo;
+  inherit (lib.types) enum coercedTo listOf;
   inherit (lib.nvim.attrsets) mapListToAttrs;
-  inherit (lib.nvim.types) mkGrammarOption diagnostics deprecatedSingleOrListOf;
-  inherit (lib.generators) mkLuaInline;
+  inherit (lib.nvim.types) mkGrammarOption diagnostics deprecatedSingleOrListOf enumWithRename;
+  inherit (lib) genAttrs;
 
   cfg = config.vim.languages.astro;
 
-  defaultServers = ["astro"];
-  servers = {
-    astro = {
-      enable = true;
-      cmd = [(getExe pkgs.astro-language-server) "--stdio"];
-      filetypes = ["astro"];
-      root_markers = ["package.json" "tsconfig.json" "jsconfig.json" ".git"];
-      init_options = {
-        typescript = {};
-      };
-      before_init =
-        mkLuaInline
-        /*
-        lua
-        */
-        ''
-          function(_, config)
-            if config.init_options and config.init_options.typescript and not config.init_options.typescript.tsdk then
-              config.init_options.typescript.tsdk = util.get_typescript_server_path(config.root_dir)
-            end
-          end
-        '';
-    };
-  };
+  defaultServers = ["astro-language-server"];
+  servers = ["astro-language-server" "emmet-ls"];
 
   defaultFormat = ["prettier"];
   formats = let
@@ -107,7 +85,12 @@ in {
           defaultText = literalExpression "config.vim.lsp.enable";
         };
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.astro.lsp.servers" (enum (attrNames servers));
+        type = listOf (enumWithRename
+          "vim.languages.astro.lsp.servers"
+          servers
+          {
+            astro = "astro-language-server";
+          });
         default = defaultServers;
         description = "Astro LSP server to use";
       };
@@ -151,12 +134,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["astro"];
+        });
+      };
     })
 
     (mkIf cfg.format.enable {

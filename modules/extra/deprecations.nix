@@ -242,13 +242,10 @@ in {
       (mkRenamedLspServer "svelte")
       (mkRemovedLspPackage "svelte")
 
-      (mkRenamedLspServer "tailwind")
-      (mkRemovedLspPackage "tailwind")
-
       (mkRemovedLspPackage "terraform")
 
-      (mkRenamedLspServer "ts")
-      (mkRemovedLspPackage "ts")
+      (mkRenamedLspServer "typescript")
+      (mkRemovedLspPackage "typescript")
 
       (mkRenamedLspServer "typst")
       (mkRemovedLspPackage "typst")
@@ -303,7 +300,7 @@ in {
       "ruby"
       "rust"
       "sql"
-      "ts"
+      "typescript"
       "typst"
     ])
     # Migrated via batchRenameOptions. Further batch renames must be below this line.
@@ -341,6 +338,31 @@ in {
       (mkRemovedOptionModule ["vim" "treesitter" "mappings" "incrementalSelection" "decrementByNode"] ''
         Incremental selection configuration has been removed from nvim-treesitter.
       '')
+    ]
+
+    # 2026-03-19
+    [
+      (mkRenamedOptionModule ["vim" "treesitter" "foldByDefault"] ["vim" "options" "foldenable"])
+    ]
+
+    # 2026-04-13
+    [
+      (mkRenamedOptionModule ["vim" "lsp" "harper-ls" "enable"] ["vim" "lsp" "presets" "harper" "enable"])
+      (mkRenamedOptionModule ["vim" "lsp" "harper-ls" "settings"] ["vim" "lsp" "servers" "harper" "settings"])
+      (mkRenamedOptionModule ["vim" "languages" "tailwind" "enable"] ["vim" "lsp" "presets" "tailwindcss-language-server" "enable"])
+      (mkRenamedOptionModule ["vim" "languages" "tailwind" "lsp" "enable"] ["vim" "lsp" "presets" "tailwindcss-language-server" "enable"])
+      (mkRenamedOptionModule ["vim" "languages" "tailwind" "lsp" "servers"] ["vim" "lsp" "presets" "tailwindcss-language-server" "enable"])
+    ]
+
+    # 2026-04-16
+    [
+      (mkRenamedOptionModule ["vim" "languages" "ts"] ["vim" "languages" "typescript"])
+    ]
+
+    # 2026-04-19
+    [
+      (mkRenamedOptionModule ["vim" "utility" "vim-wakatime" "cli-path"] ["vim" "utility" "vim-wakatime" "setupOpts" "cli_path"])
+      (mkRenamedOptionModule ["vim" "languages" "go" "treesitter" "gotmplPackage"] ["vim" "languages" "go" "treesitter" "gotmpl" "package"])
     ]
   ];
 }

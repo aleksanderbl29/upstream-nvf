@@ -6,23 +6,17 @@
 }: let
   inherit (builtins) attrNames;
   inherit (lib.options) mkOption mkEnableOption literalExpression;
-  inherit (lib.meta) getExe' getExe;
+  inherit (lib.meta) getExe;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.types) enum;
-  inherit (lib.nvim.types) mkGrammarOption deprecatedSingleOrListOf;
+  inherit (lib.types) enum listOf;
+  inherit (lib) genAttrs;
+  inherit (lib.nvim.types) mkGrammarOption deprecatedSingleOrListOf enumWithRename;
   inherit (lib.nvim.attrsets) mapListToAttrs;
 
   cfg = config.vim.languages.json;
 
-  defaultServers = ["jsonls"];
-  servers = {
-    jsonls = {
-      cmd = [(getExe' pkgs.vscode-langservers-extracted "vscode-json-language-server") "--stdio"];
-      filetypes = ["json" "jsonc" "json5"];
-      init_options = {provideFormatter = true;};
-      root_markers = [".git"];
-    };
-  };
+  defaultServers = ["vscode-json-language-server"];
+  servers = ["vscode-json-language-server"];
 
   defaultFormat = ["jsonfmt"];
 
@@ -57,7 +51,12 @@ in {
         };
 
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.json.lsp.servers" (enum (attrNames servers));
+        type = listOf (enumWithRename
+          "vim.languages.json.lsp.servers"
+          servers
+          {
+            jsonls = "vscode-json-language-server";
+          });
         default = defaultServers;
         description = "JSON LSP server to use";
       };
@@ -89,12 +88,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (name: {
-          inherit name;
-          value = servers.${name};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["json" "jsonc" "json5"];
+        });
+      };
     })
 
     (mkIf cfg.format.enable {

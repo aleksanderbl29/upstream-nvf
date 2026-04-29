@@ -6,46 +6,17 @@
 }: let
   inherit (builtins) attrNames;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
+  inherit (lib) genAttrs;
   inherit (lib.meta) getExe;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.nvim.types) mkGrammarOption diagnostics deprecatedSingleOrListOf;
-  inherit (lib.types) enum;
+  inherit (lib.nvim.types) mkGrammarOption diagnostics deprecatedSingleOrListOf enumWithRename;
+  inherit (lib.types) enum listOf;
   inherit (lib.nvim.attrsets) mapListToAttrs;
 
   cfg = config.vim.languages.ruby;
 
   defaultServers = ["solargraph"];
-  servers = {
-    ruby_lsp = {
-      enable = true;
-      cmd = [(getExe pkgs.ruby-lsp)];
-      filetypes = ["ruby" "eruby"];
-      root_markers = ["Gemfile" ".git"];
-      init_options = {
-        formatter = "auto";
-      };
-    };
-
-    solargraph = {
-      enable = true;
-      cmd = [(getExe pkgs.rubyPackages.solargraph) "stdio"];
-      filetypes = ["ruby"];
-      root_markers = ["Gemfile" ".git"];
-      settings = {
-        solargraph = {
-          diagnostics = true;
-        };
-      };
-
-      flags = {
-        debounce_text_changes = 150;
-      };
-
-      init_options = {
-        formatting = true;
-      };
-    };
-  };
+  servers = ["ruby-lsp" "solargraph"];
 
   # testing
 
@@ -85,7 +56,12 @@ in {
         };
 
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.ruby.lsp.servers" (enum (attrNames servers));
+        type = listOf (enumWithRename
+          "vim.languages.ruby.lsp.servers"
+          servers
+          {
+            ruby_lsp = "ruby-lsp";
+          });
         default = defaultServers;
         description = "Ruby LSP server to use";
       };
@@ -121,12 +97,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["ruby" "eruby"];
+        });
+      };
     })
 
     (mkIf cfg.format.enable {

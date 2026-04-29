@@ -1,6 +1,6 @@
 {
   imports = [
-    ./harper-ls.nix
     ./config.nix
+    ./ui2.nix
   ];
 }

@@ -7,6 +7,7 @@
   inherit (builtins) attrNames;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
   inherit (lib.modules) mkIf mkMerge;
+  inherit (lib) genAttrs;
   inherit (lib.meta) getExe;
   inherit (lib.types) listOf enum;
   inherit (lib.nvim.types) mkGrammarOption diagnostics;
@@ -15,14 +16,7 @@
   cfg = config.vim.languages.twig;
 
   defaultServers = ["twig-language-server"];
-  servers = {
-    twig-language-server = {
-      enable = true;
-      cmd = [(getExe pkgs.twig-language-server) "--stdio"];
-      filetypes = ["twig"];
-      root_markers = [".git"];
-    };
-  };
+  servers = ["twig-language-server" "emmet-ls"];
 
   defaultFormat = ["djlint"];
   formats = {
@@ -62,7 +56,7 @@ in {
           defaultText = literalExpression "config.vim.lsp.enable";
         };
       servers = mkOption {
-        type = listOf (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "Twig LSP server to use";
       };
@@ -104,12 +98,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["twig"];
+        });
+      };
     })
 
     (mkIf cfg.format.enable {

@@ -4,7 +4,25 @@
   ...
 }: let
   inherit (lib.options) mkOption mkEnableOption literalExpression;
-  inherit (lib.types) listOf package bool;
+  inherit (lib.types) listOf nullOr package bool str lines enum submodule oneOf attrsOf;
+
+  queriesType = submodule {
+    options = {
+      type = mkOption {
+        type = enum ["injections" "highlights" "folds" "locals" "indents"];
+        description = "The kind of query to register.";
+      };
+      filetypes = mkOption {
+        type = listOf str;
+        default = [];
+        description = "The filetypes for which the query should be registered.";
+      };
+      query = mkOption {
+        type = lines;
+        description = "The queries scm script.";
+      };
+    };
+  };
 in {
   options.vim.treesitter = {
     enable = mkEnableOption "treesitter, also enabled automatically through language options";
@@ -13,7 +31,7 @@ in {
     autotagHtml = mkEnableOption "autoclose and rename html tag";
 
     grammars = mkOption {
-      type = listOf package;
+      type = listOf (nullOr package);
       default = [];
       example = literalExpression ''
         with pkgs.vimPlugins.nvim-treesitter.grammarPlugins; [
@@ -64,7 +82,47 @@ in {
       '';
     };
 
-    indent = {enable = mkEnableOption "indentation with treesitter" // {default = true;};};
+    indent = {
+      enable = mkEnableOption "indentation with treesitter" // {default = true;};
+      pattern = mkOption {
+        type = oneOf [str (listOf str)];
+        default = "*";
+        example = literalExpression ''["lua" "nix"]'';
+        description = ''
+          Specify the filetype pattern(s) for which the treesitter indentation should be used.
+
+          See {command}`:h autocmd-pattern`.
+        '';
+      };
+      excludes = mkOption {
+        type = listOf str;
+        default = [];
+        example = literalExpression ''["haskell", "purescript"]'';
+        description = ''
+          Exclude the listed filetypes from using treesitter indentation.
+        '';
+      };
+    };
+
     highlight = {enable = mkEnableOption "highlighting with treesitter" // {default = true;};};
+
+    queries = mkOption {
+      type = listOf queriesType;
+      default = [];
+      description = "A list of Neovim treesitter queries to be registered.";
+    };
+
+    filetypeMappings = mkOption {
+      type = attrsOf (listOf str);
+      default = {};
+      example = {
+        "sh" = ["ash" "dash"];
+      };
+      description = ''
+        For each parser, registers a list of alternative filetypes.
+        For more information see `:h vim.treesitter.language.register()`.
+        See treesitter builtin mappings here: <https://github.com/nvim-treesitter/nvim-treesitter/blob/main/plugin/filetypes.lua>
+      '';
+    };
   };
 }

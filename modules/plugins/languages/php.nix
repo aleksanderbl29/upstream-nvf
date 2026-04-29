@@ -6,65 +6,18 @@
 }: let
   inherit (builtins) attrNames toString;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
+  inherit (lib) genAttrs;
   inherit (lib.meta) getExe;
   inherit (lib.modules) mkIf mkMerge;
   inherit (lib.types) enum int attrs listOf;
   inherit (lib.nvim.lua) toLuaObject;
-  inherit (lib.nvim.types) mkGrammarOption deprecatedSingleOrListOf;
+  inherit (lib.nvim.types) mkGrammarOption;
   inherit (lib.nvim.attrsets) mapListToAttrs;
-  inherit (lib.generators) mkLuaInline;
 
   cfg = config.vim.languages.php;
 
   defaultServers = ["phpactor"];
-  servers = {
-    phpactor = {
-      enable = true;
-      cmd = [(getExe pkgs.phpactor) "language-server"];
-      filetypes = ["php"];
-      root_markers = [".git" "composer.json" ".phpactor.json" ".phpactor.yml"];
-      workspace_required = true;
-    };
-
-    phan = {
-      enable = true;
-      cmd = [
-        (getExe pkgs.php81Packages.phan)
-        "-m"
-        "json"
-        "--no-color"
-        "--no-progress-bar"
-        "-x"
-        "-u"
-        "-S"
-        "--language-server-on-stdin"
-        "--allow-polyfill-parser"
-      ];
-      filetypes = ["php"];
-      root_dir =
-        mkLuaInline
-        /*
-        lua
-        */
-        ''
-          function(bufnr, on_dir)
-            local fname = vim.api.nvim_buf_get_name(bufnr)
-            local cwd = assert(vim.uv.cwd())
-            local root = vim.fs.root(fname, { 'composer.json', '.git' })
-
-            -- prefer cwd if root is a descendant
-            on_dir(root and vim.fs.relpath(cwd, root) and cwd)
-          end
-        '';
-    };
-
-    intelephense = {
-      enable = true;
-      cmd = [(getExe pkgs.intelephense) "--stdio"];
-      filetypes = ["php"];
-      root_markers = ["composer.json" ".git"];
-    };
-  };
+  servers = ["phpactor" "phan" "intelephense"];
 
   defaultFormat = ["php_cs_fixer"];
   formats = {
@@ -103,7 +56,7 @@ in {
         };
 
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.php.lsp.servers" (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "PHP LSP server to use";
       };
@@ -136,7 +89,7 @@ in {
           type = attrs;
           default = {
             type = "executable";
-            command = "${pkgs.nodePackages_latest.nodejs}/bin/node";
+            command = getExe pkgs.nodejs;
             args = [
               "${pkgs.vscode-extensions.xdebug.php-debug}/share/vscode/extensions/xdebug.php-debug/out/phpDebug.js"
             ];
@@ -159,12 +112,13 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["php"];
+          root_markers = ["composer.json"];
+        });
+      };
     })
 
     (mkIf cfg.format.enable {

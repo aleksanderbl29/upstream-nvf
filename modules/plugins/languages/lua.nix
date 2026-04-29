@@ -8,6 +8,7 @@
   inherit (lib.options) literalExpression mkEnableOption mkOption;
   inherit (lib.modules) mkIf mkMerge;
   inherit (lib.meta) getExe;
+  inherit (lib) genAttrs;
   inherit (lib.types) bool enum listOf;
   inherit (lib.nvim.types) diagnostics mkGrammarOption;
   inherit (lib.nvim.dag) entryBefore;
@@ -16,23 +17,7 @@
   cfg = config.vim.languages.lua;
 
   defaultServers = ["lua-language-server"];
-  servers = {
-    lua-language-server = {
-      enable = true;
-      cmd = [(getExe pkgs.lua-language-server)];
-      filetypes = ["lua"];
-      root_markers = [
-        ".luarc.json"
-        ".luarc.jsonc"
-        ".luacheckrc"
-        ".stylua.toml"
-        "stylua.toml"
-        "selene.toml"
-        "selene.yml"
-        ".git"
-      ];
-    };
-  };
+  servers = ["lua-language-server"];
 
   defaultFormat = ["stylua"];
   formats = {
@@ -77,7 +62,7 @@ in {
           defaultText = literalExpression "config.vim.lsp.enable";
         };
       servers = mkOption {
-        type = listOf (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "Lua LSP server to use";
       };
@@ -122,12 +107,12 @@ in {
 
     (mkIf cfg.enable (mkMerge [
       (mkIf cfg.lsp.enable {
-        vim.lsp.servers =
-          mapListToAttrs (n: {
-            name = n;
-            value = servers.${n};
-          })
-          cfg.lsp.servers;
+        vim.lsp = {
+          presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+          servers = genAttrs cfg.lsp.servers (_: {
+            filetypes = ["lua"];
+          });
+        };
       })
 
       (mkIf cfg.lsp.lazydev.enable {

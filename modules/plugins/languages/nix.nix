@@ -5,32 +5,18 @@
   ...
 }: let
   inherit (builtins) attrNames;
-  inherit (lib) concatStringsSep;
+  inherit (lib) concatStringsSep genAttrs;
   inherit (lib.meta) getExe;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.types) enum;
+  inherit (lib.types) enum listOf;
   inherit (lib.nvim.types) mkGrammarOption diagnostics deprecatedSingleOrListOf;
   inherit (lib.nvim.attrsets) mapListToAttrs;
 
   cfg = config.vim.languages.nix;
 
   defaultServers = ["nil"];
-  servers = {
-    nil = {
-      enable = true;
-      cmd = [(getExe pkgs.nil)];
-      filetypes = ["nix"];
-      root_markers = [".git" "flake.nix"];
-    };
-
-    nixd = {
-      enable = true;
-      cmd = [(getExe pkgs.nixd)];
-      filetypes = ["nix"];
-      root_markers = [".git" "flake.nix"];
-    };
-  };
+  servers = ["nil" "nixd"];
 
   defaultFormat = ["alejandra"];
   formats = {
@@ -91,7 +77,7 @@ in {
           defaultText = literalExpression "config.vim.lsp.enable";
         };
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.nix.lsp.servers" (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "Nix LSP server to use";
       };
@@ -142,17 +128,80 @@ in {
     }
 
     (mkIf cfg.treesitter.enable {
-      vim.treesitter.enable = true;
-      vim.treesitter.grammars = [cfg.treesitter.package];
+      vim.treesitter = {
+        enable = true;
+        grammars = [cfg.treesitter.package];
+        queries = [
+          # query = ''; -> query
+          {
+            type = "injections";
+            filetypes = ["nix"];
+            query = ''
+              ;; extends
+
+              ((binding
+                attrpath: (attrpath
+                  (identifier) @_path)
+                  (#eq? @_path "query")
+                expression: [
+                  (string_expression
+                    ((string_fragment) @injection.content
+                    (#set! injection.language "query")))
+                  (indented_string_expression
+                    ((string_fragment) @injection.content
+                    (#set! injection.language "query")))
+                  (apply_expression
+                    argument: [
+                      (string_expression
+                        ((string_fragment) @injection.content
+                        (#set! injection.language "query")))
+                      (indented_string_expression
+                        ((string_fragment) @injection.content
+                        (#set! injection.language "query")))
+                    ])
+                ]))
+            '';
+          }
+          # mkLuaInline, entryAnywhere, entryBefore, entryAfter -> lua
+          {
+            type = "injections";
+            filetypes = ["nix"];
+            query = ''
+              ;; extends
+
+              ((apply_expression
+                function: (variable_expression
+                  name: (identifier) @_func
+                  (#any-of? @_func "mkLuaInline" "entryAnywhere"))
+                argument: (indented_string_expression
+                  (string_fragment) @injection.content))
+              (#set! injection.language "lua")
+              (#set! injection.combined))
+
+              ((apply_expression
+                function: (apply_expression
+                  function: (variable_expression
+                    name: (identifier) @_func
+                    (#any-of? @_func "entryBefore" "entryAfter"))
+                  argument: (_))
+                argument: (indented_string_expression
+                  (string_fragment) @injection.content))
+              (#set! injection.language "lua")
+              (#set! injection.combined))
+            '';
+          }
+        ];
+      };
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["nix"];
+          root_markers = ["flake.nix"];
+        });
+      };
     })
 
     (mkIf cfg.format.enable {

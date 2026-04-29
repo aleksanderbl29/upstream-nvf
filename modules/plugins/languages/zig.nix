@@ -7,23 +7,14 @@
   inherit (builtins) attrNames;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
   inherit (lib.modules) mkIf mkMerge mkDefault;
-  inherit (lib.types) bool package enum;
-  inherit (lib.nvim.types) mkGrammarOption deprecatedSingleOrListOf;
-  inherit (lib.meta) getExe;
-  inherit (lib.nvim.attrsets) mapListToAttrs;
+  inherit (lib) genAttrs;
+  inherit (lib.types) bool package enum listOf;
+  inherit (lib.nvim.types) mkGrammarOption;
 
   cfg = config.vim.languages.zig;
 
   defaultServers = ["zls"];
-  servers = {
-    zls = {
-      enable = true;
-      cmd = [(getExe pkgs.zls)];
-      filetypes = ["zig" "zir"];
-      root_markers = ["zls.json" "build.zig" ".git"];
-      workspace_required = false;
-    };
-  };
+  servers = ["zls"];
 
   # TODO: dap.adapter.lldb is duplicated when enabling the
   # vim.languages.clang.dap module. This does not cause
@@ -77,7 +68,7 @@ in {
         };
 
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.zig.lsp.servers" (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "Zig LSP server to use";
       };
@@ -115,13 +106,13 @@ in {
 
     (mkIf cfg.lsp.enable {
       vim = {
-        lsp.servers =
-          mapListToAttrs (n: {
-            name = n;
-            value = servers.${n};
-          })
-          cfg.lsp.servers;
-
+        lsp = {
+          presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+          servers = genAttrs cfg.lsp.servers (_: {
+            root_markers = ["build.zig"];
+            filetypes = ["zig" "zir"];
+          });
+        };
         # nvf handles autosaving already
         globals.zig_fmt_autosave = mkDefault 0;
       };

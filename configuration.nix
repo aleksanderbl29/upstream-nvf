@@ -13,6 +13,9 @@ isMaximal: {
       logFile = "/tmp/nvim.log";
     };
 
+    # vim.opts and vim.options are aliased
+    opts.expandtab = true;
+
     spellcheck = {
       enable = true;
       programmingWordlist.enable = isMaximal;
@@ -31,7 +34,7 @@ isMaximal: {
       lspSignature.enable = !isMaximal; # conflicts with blink in maximal
       otter-nvim.enable = isMaximal;
       nvim-docs-view.enable = isMaximal;
-      harper-ls.enable = isMaximal;
+      presets.harper.enable = isMaximal;
     };
 
     debugger = {
@@ -62,7 +65,7 @@ isMaximal: {
       sql.enable = isMaximal;
       java.enable = isMaximal;
       kotlin.enable = isMaximal;
-      ts.enable = isMaximal;
+      typescript.enable = isMaximal;
       go.enable = isMaximal;
       lua.enable = isMaximal;
       zig.enable = isMaximal;
@@ -74,8 +77,10 @@ isMaximal: {
       };
       toml.enable = isMaximal;
       xml.enable = isMaximal;
+      tex.enable = isMaximal;
 
       # Language modules that are not as common.
+      openscad.enable = false;
       arduino.enable = false;
       assembly.enable = false;
       astro.enable = false;
@@ -98,11 +103,14 @@ isMaximal: {
       make.enable = false;
       qml.enable = false;
       jinja.enable = false;
-      tailwind.enable = false;
       svelte.enable = false;
+      vue.enable = false;
+      liquid.enable = false;
       tera.enable = false;
       twig.enable = false;
+      gettext.enable = false;
       fluent.enable = false;
+      jq.enable = false;
 
       # Nim LSP is broken on Darwin and therefore
       # should be disabled by default. Users may still enable

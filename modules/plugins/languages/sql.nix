@@ -6,33 +6,19 @@
 }: let
   inherit (builtins) attrNames;
   inherit (lib.options) mkEnableOption mkOption literalExpression;
+  inherit (lib) genAttrs;
   inherit (lib.meta) getExe;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.types) enum package str;
+  inherit (lib.types) enum package str listOf;
   inherit (lib.nvim.types) diagnostics deprecatedSingleOrListOf;
   inherit (lib.nvim.attrsets) mapListToAttrs;
-  inherit (lib.generators) mkLuaInline;
 
   cfg = config.vim.languages.sql;
   sqlfluffDefault = pkgs.sqlfluff;
   sqruffDefault = pkgs.sqruff;
 
   defaultServers = ["sqls"];
-  servers = {
-    sqls = {
-      enable = true;
-      cmd = [(getExe pkgs.sqls)];
-      filetypes = ["sql" "mysql"];
-      root_markers = ["config.yml"];
-      settings = {};
-      on_attach = mkLuaInline ''
-        function(client, bufnr)
-          client.server_capabilities.execute_command = true
-          require'sqls'.setup{}
-        end
-      '';
-    };
-  };
+  servers = ["sqls"];
 
   defaultFormat = ["sqlfluff"];
   formats = {
@@ -97,7 +83,7 @@ in {
         };
 
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.sql.lsp.servers" (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "SQL LSP server to use";
       };
@@ -142,14 +128,12 @@ in {
 
     (mkIf cfg.lsp.enable {
       vim = {
-        startPlugins = ["sqls-nvim"];
-
-        lsp.servers =
-          mapListToAttrs (n: {
-            name = n;
-            value = servers.${n};
-          })
-          cfg.lsp.servers;
+        lsp = {
+          presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+          servers = genAttrs cfg.lsp.servers (_: {
+            filetypes = ["sql" "mysql" "msql" "plsql"];
+          });
+        };
       };
     })
 

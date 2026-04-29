@@ -8,7 +8,8 @@
   inherit (lib.meta) getExe;
   inherit (lib.options) literalExpression mkEnableOption mkOption;
   inherit (lib.modules) mkIf mkMerge;
-  inherit (lib.types) bool enum;
+  inherit (lib.types) bool enum listOf;
+  inherit (lib) genAttrs;
   inherit (lib.lists) optional;
   inherit (lib.nvim.types) mkGrammarOption diagnostics deprecatedSingleOrListOf;
   inherit (lib.nvim.dag) entryAnywhere;
@@ -17,18 +18,7 @@
   cfg = config.vim.languages.html;
 
   defaultServers = ["superhtml"];
-  servers = {
-    superhtml = {
-      cmd = [(getExe pkgs.superhtml) "lsp"];
-      filetypes = ["html" "shtml" "htm"];
-      root_markers = ["index.html" ".git"];
-    };
-    emmet-ls = {
-      cmd = [(getExe pkgs.emmet-ls) "--stdio"];
-      filetypes = ["html" "shtml" "htm"];
-      root_markers = ["index.html" ".git"];
-    };
-  };
+  servers = ["superhtml" "emmet-ls" "angular-language-server"];
 
   defaultFormat = ["superhtml"];
   formats = {
@@ -70,7 +60,7 @@ in {
           defaultText = literalExpression "config.vim.lsp.enable";
         };
       servers = mkOption {
-        type = deprecatedSingleOrListOf "vim.language.html.lsp.servers" (enum (attrNames servers));
+        type = listOf (enum servers);
         default = defaultServers;
         description = "HTML LSP server to use";
       };
@@ -124,12 +114,12 @@ in {
     })
 
     (mkIf cfg.lsp.enable {
-      vim.lsp.servers =
-        mapListToAttrs (n: {
-          name = n;
-          value = servers.${n};
-        })
-        cfg.lsp.servers;
+      vim.lsp = {
+        presets = genAttrs cfg.lsp.servers (_: {enable = true;});
+        servers = genAttrs cfg.lsp.servers (_: {
+          filetypes = ["html" "shtml" "xhtml" "htm"];
+        });
+      };
     })
 
     (mkIf (cfg.format.enable && !cfg.lsp.enable) {
